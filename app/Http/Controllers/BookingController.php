@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreBookingRequest;
 use App\Models\Booking;
 use App\Models\Room;
-use Carbon\Carbon;
+use App\Services\BookingScheduler;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 class BookingController extends Controller
@@ -18,33 +20,28 @@ class BookingController extends Controller
             ->paginate(20);
     }
 
-    public function store(Request $request)
+    public function store(StoreBookingRequest $request, BookingScheduler $scheduler): JsonResponse
     {
-        $conflict = DB::select("SELECT id FROM bookings
-            WHERE room_id = {$request->room_id}
-            AND starts_at <= '{$request->ends_at}'
-            AND ends_at >= '{$request->starts_at}'");
+        $booking = $scheduler->create(
+            $request->user(),
+            $request->room(),
+            $request->startsAt(),
+            $request->endsAt(),
+            trim((string) $request->string('title')),
+        );
 
-        if ($conflict) {
-            return response()->json(['error' => 'Комната занята'], 409);
-        }
+        Log::channel('bookings')->info('Booking created', ['booking_id' => $booking->id]);
 
-        $start = Carbon::parse($request->starts_at);
-        if ($start->hour < 9 || $start->hour >= 20) {
-            return response()->json(['error' => 'Нерабочее время'], 422);
-        }
-
-        $booking = Booking::create($request->all());
-
-        Log::withContext(['booking_id' => $booking->id]);
-        Log::channel('bookings')->info('Booking created');
-
-        return $booking;
+        return response()->json($booking, 201);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, Booking $booking): JsonResponse|Response
     {
-        Booking::findOrFail($id)->delete();
+        if ($booking->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Отменить бронь может только её автор.'], 403);
+        }
+
+        $booking->delete();
 
         return response()->noContent();
     }
