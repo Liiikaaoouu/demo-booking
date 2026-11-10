@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Room;
+use App\Rules\Iso8601DateTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -20,8 +21,8 @@ class StoreBookingRequest extends FormRequest
         return [
             'room_id' => ['required', 'integer', 'exists:rooms,id'],
             'title' => ['required', 'string', 'max:255'],
-            'starts_at' => ['required', 'date'],
-            'ends_at' => ['required', 'date', 'after:starts_at'],
+            'starts_at' => ['required', 'string', new Iso8601DateTime],
+            'ends_at' => ['required', 'string', 'after:starts_at', new Iso8601DateTime],
         ];
     }
 
@@ -38,9 +39,7 @@ class StoreBookingRequest extends FormRequest
             'title.string' => 'Тема встречи должна быть строкой.',
             'title.max' => 'Тема встречи не длиннее 255 символов.',
             'starts_at.required' => 'Укажите время начала.',
-            'starts_at.date' => 'Время начала должно быть датой в формате ISO 8601.',
             'ends_at.required' => 'Укажите время окончания.',
-            'ends_at.date' => 'Время окончания должно быть датой в формате ISO 8601.',
             'ends_at.after' => 'Время окончания должно быть позже времени начала.',
         ];
     }

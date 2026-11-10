@@ -316,6 +316,52 @@ class BookingStoreTest extends TestCase
             ->assertJsonValidationErrors('starts_at');
     }
 
+    public function test_rejects_time_without_offset(): void
+    {
+        $this->postJson('/api/bookings', $this->payload([
+            'starts_at' => '2026-12-01T10:00:00',
+            'ends_at' => '2026-12-01T11:00:00',
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('starts_at');
+    }
+
+    public function test_rejects_time_with_space_instead_of_t(): void
+    {
+        $this->postJson('/api/bookings', $this->payload([
+            'starts_at' => '2026-12-01 10:00:00+03:00',
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('starts_at');
+    }
+
+    public function test_rejects_nonexistent_date(): void
+    {
+        $this->postJson('/api/bookings', $this->payload([
+            'starts_at' => '2026-02-30T10:00:00+03:00',
+            'ends_at' => '2026-02-30T11:00:00+03:00',
+        ]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('starts_at');
+    }
+
+    public function test_accepts_zulu_designator(): void
+    {
+        // 07:00Z — это 10:00 по Москве.
+        $this->postJson('/api/bookings', $this->payload([
+            'starts_at' => '2026-12-01T07:00:00Z',
+            'ends_at' => '2026-12-01T08:00:00Z',
+        ]))->assertCreated();
+    }
+
+    public function test_accepts_offset_without_colon(): void
+    {
+        $this->postJson('/api/bookings', $this->payload([
+            'starts_at' => '2026-12-01T10:00:00+0300',
+            'ends_at' => '2026-12-01T11:00:00+0300',
+        ]))->assertCreated();
+    }
+
     public function test_rejects_too_long_title(): void
     {
         $this->postJson('/api/bookings', $this->payload(['title' => str_repeat('a', 256)]))
